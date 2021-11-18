@@ -20,8 +20,7 @@ strategy:
       function: example_with_logging
 
 container:
-  image: faureciacognite.azurecr.io/function-action:latest
-  endpoint: faureciacogniteregistry
+  image: cognite/function-action:v1
 
 steps:
   - bash: |
