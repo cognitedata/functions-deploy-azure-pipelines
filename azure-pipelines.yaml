@@ -1,0 +1,50 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+
+pool:
+  vmImage: 'ubuntu-18.04'
+
+strategy:
+  matrix:
+    example_function1:
+      function: example_function1
+    example_function2:      
+      function: example_function2
+    example_with_logging:
+      function: example_with_logging
+
+container:
+  image: faureciacognite.azurecr.io/function-action:latest
+  endpoint: faureciacogniteregistry
+
+steps:
+  - bash: |
+        wget -qO ./yq https://github.com/mikefarah/yq/releases/download/v4.12.2/yq_linux_amd64
+        chmod +x ./yq
+    name: install_yq
+  - bash: |
+        FILE="$FUNCTION/function_config.yaml"
+        if [ ! -f $FILE ]; then
+            echo "Config: $FILE not supplied!"
+        else
+            ALLKEYS=$(./yq e "... comments=\"\" | keys" $FILE)
+            for CONFIGURATION in $ALLKEYS
+            do
+              if [ "$CONFIGURATION" != "-" ]; then
+                  VALUE=$(./yq e ".$CONFIGURATION" $FILE)
+                  echo "##vso[task.setvariable variable=$CONFIGURATION;]:$VALUE"
+              fi
+            done
+        fi
+    name: config_param
+  - script: INPUT_SCHEDULE_CLIENT_ID=$CLIENT_ID INPUT_SCHEDULE_TENANT_ID=$TENANT_ID INPUT_SCHEDULE_CLIENT_SECRET=$CLIENT_SECRET INPUT_SCHEDULE_FILE=schedules/$(Build.SourceBranchName).yaml INPUT_COMMON_FOLDER=common INPUT_FUNCTION_FOLDER=$FUNCTION INPUT_FUNCTION_EXTERNAL_ID=$FUNCTION-$(Build.SourceBranchName) INPUT_CDF_CLUSTER=$CDF_CLUSTER INPUT_CDF_PROJECT=$CDF_PROJECT INPUT_DEPLOYMENT_CLIENT_ID=$CLIENT_ID INPUT_DEPLOYMENT_CLIENT_SECRET=$CLIENT_SECRET INPUT_DEPLOYMENT_TENANT_ID=$TENANT_ID python /app/index.py
+    displayName: Deploy Functions to CDF
+    env:
+      CLIENT_SECRET: $(CLIENT_SECRET)
+  
