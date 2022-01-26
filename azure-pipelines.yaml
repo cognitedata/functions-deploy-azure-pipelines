@@ -1,32 +1,25 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
-
+- master
 
 pool:
-  vmImage: 'ubuntu-18.04'
+  vmImage: ubuntu-latest
 
 strategy:
   matrix:
     example_function1:
       function: example_function1
-    example_function2:      
+    example_function2:
       function: example_function2
-    example_with_logging:
-      function: example_with_logging
 
 container:
-  image: cognite/function-action:v1
+  image: cognite/function-action:v1-azure
 
 steps:
   - bash: |
-        wget -qO ./yq https://github.com/mikefarah/yq/releases/download/v4.12.2/yq_linux_amd64
+        wget -qO ./yq https://github.com/mikefarah/yq/releases/download/v4.17.2/yq_linux_amd64
         chmod +x ./yq
     name: install_yq
+
   - bash: |
         FILE="$FUNCTION/function_config.yaml"
         if [ ! -f $FILE ]; then
@@ -37,13 +30,25 @@ steps:
             do
               if [ "$CONFIGURATION" != "-" ]; then
                   VALUE=$(./yq e ".$CONFIGURATION" $FILE)
-                  echo "##vso[task.setvariable variable=$CONFIGURATION;]:$VALUE"
+                  echo "##vso[task.setvariable variable=$CONFIGURATION;]$VALUE"
               fi
             done
         fi
     name: config_param
-  - script: INPUT_SCHEDULE_CLIENT_ID=$CLIENT_ID INPUT_SCHEDULE_TENANT_ID=$TENANT_ID INPUT_SCHEDULE_CLIENT_SECRET=$CLIENT_SECRET INPUT_SCHEDULE_FILE=schedules/$(Build.SourceBranchName).yaml INPUT_COMMON_FOLDER=common INPUT_FUNCTION_FOLDER=$FUNCTION INPUT_FUNCTION_EXTERNAL_ID=$FUNCTION-$(Build.SourceBranchName) INPUT_CDF_CLUSTER=$CDF_CLUSTER INPUT_CDF_PROJECT=$CDF_PROJECT INPUT_DEPLOYMENT_CLIENT_ID=$CLIENT_ID INPUT_DEPLOYMENT_CLIENT_SECRET=$CLIENT_SECRET INPUT_DEPLOYMENT_TENANT_ID=$TENANT_ID python /app/index.py
+
+  - script: python /app/index.py
     displayName: Deploy Functions to CDF
-    env:
-      CLIENT_SECRET: $(CLIENT_SECRET)
-  
+    env: # You may hardcode certain params here that do not change between functions:
+        FUNCTION_FOLDER: $(FUNCTION)
+        DEPLOYMENT_TENANT_ID: "0d75f6b8-c6b9-4e84-baca-503e08aa7e4a"
+        DEPLOYMENT_CLIENT_ID: "5f18d04a-2d2a-41a2-aa15-bd62a149cd14"
+        SCHEDULES_TENANT_ID: "0d75f6b8-c6b9-4e84-baca-503e08aa7e4a"
+        SCHEDULES_CLIENT_ID: "d9b2bd26-2d84-4960-bbdc-ecdd9743975d"
+        FUNCTION_SECRETS: $(FUNCTION_SECRETS_MASTER)
+        DEPLOYMENT_CLIENT_SECRET: $(DEPLOY_MASTER)
+        SCHEDULES_CLIENT_SECRET: $(SCHEDULES_MASTER)
+        CDF_PROJECT: az-forge-sandbox
+        CDF_CLUSTER: bluefield
+        DATA_SET_ID: "7289494538225428"
+        SCHEDULE_FILE: schedules/$(Build.SourceBranchName).yaml
+        FUNCTION_EXTERNAL_ID: $(FUNCTION)-$(Build.SourceBranchName)
