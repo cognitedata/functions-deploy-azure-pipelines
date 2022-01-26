@@ -12,7 +12,7 @@ strategy:
       function: example_function2
 
 container:
-  image: cognite/function-action:v1
+  image: cognite/function-action:v1-azure
 
 steps:
   - bash: |
